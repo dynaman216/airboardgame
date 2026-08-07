@@ -358,5 +358,10 @@
   "An error occurred. Try again!": "An error occurred. Try again!",
   "Rotate board": "Rotate board",
   "Hold items": "Hold items",
-  "Whether we can place items on it. When an item is placed, moving the current item one also moves the placed items.": "Whether we can place items on it. When an item is placed, moving the current item one also moves the placed items."
+  "Whether we can place items on it. When an item is placed, moving the current item one also moves the placed items.": "Whether we can place items on it. When an item is placed, moving the current item one also moves the placed items.",
+  "You don't have the permissions to go fullscreen": "__NOT_TRANSLATED__",
+  "Error while uploading media. Try again later...": "__NOT_TRANSLATED__",
+  "Limit board dragging": "Limit board dragging",
+  "Check it to keep the board tethered near the items when dragging. Uncheck to allow unlimited dragging.": "Check it to keep the board tethered near the items when dragging. Uncheck to allow unlimited dragging.",
+  "You don't have the permissions to copy the Url": "__NOT_TRANSLATED__"
 }

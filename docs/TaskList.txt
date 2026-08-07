@@ -1,0 +1,10 @@
+npm run dev:all
+
+map scrolling option
+list of "counters" and click on one to center
+creation and assignment of groups (sides for example)
+    default group of umpire
+hiding counters by groups
+    opacity option for those that can see them
+    umpire can see everything
+Right Click menu

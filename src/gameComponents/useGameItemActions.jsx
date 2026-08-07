@@ -80,6 +80,139 @@ export const useGameItemActions = () => {
     [getItems, getSelectedItems]
   );
 
+  // Given a map of { itemId: angleDelta }, compute the new position/rotation
+  // of every item recursively held on top of each rotated item (via the
+  // "hold" mechanism's linkedItems), so a whole stack rotates as a rigid
+  // unit around its holder's center, keeping items' relative position.
+  //
+  // Each held item carries heldOffset/heldAngle, captured once when it was
+  // placed on its holder (see captureHeldReferences). Every subsequent
+  // rotation is recomputed from that fixed reference plus the holder's
+  // current total rotation, rather than from the held item's own (already
+  // rotated) live position -- so floating point error from Math.cos/Math.sin
+  // can't compound across repeated rotations. Items without a stored
+  // reference (e.g. from before this existed) fall back to deriving one
+  // from the live position, matching the previous behavior for that step.
+  const computeHeldRotationUpdates = React.useCallback(
+    (rootAngles) => {
+      const heldUpdates = {};
+      const processedHeld = new Set(Object.keys(rootAngles));
+      const queue = [];
+
+      Object.entries(rootAngles).forEach(([rootId, angleDelta]) => {
+        if (!angleDelta) {
+          return;
+        }
+        const [rootItem] = getItems([rootId]);
+        if (
+          !rootItem ||
+          !Array.isArray(rootItem.linkedItems) ||
+          rootItem.linkedItems.length === 0
+        ) {
+          return;
+        }
+        const rootElement = getItemElement(rootId);
+        if (!rootElement) {
+          return;
+        }
+
+        const holderCenter = {
+          x: rootItem.x + rootElement.clientWidth / 2,
+          y: rootItem.y + rootElement.clientHeight / 2,
+        };
+        const holderPreviousRotation = rootItem.rotation || 0;
+        const holderNewRotation = holderPreviousRotation + angleDelta;
+
+        rootItem.linkedItems.forEach((heldId) => {
+          queue.push({
+            heldId,
+            holderCenter,
+            holderPreviousRotation,
+            holderNewRotation,
+            angleDelta,
+          });
+        });
+      });
+
+      while (queue.length > 0) {
+        const {
+          heldId,
+          holderCenter,
+          holderPreviousRotation,
+          holderNewRotation,
+          angleDelta,
+        } = queue.shift();
+        if (processedHeld.has(heldId)) {
+          continue;
+        }
+        processedHeld.add(heldId);
+
+        const [heldItem] = getItems([heldId]);
+        if (!heldItem) {
+          continue;
+        }
+
+        const heldElement = getItemElement(heldId);
+        if (!heldElement) {
+          continue;
+        }
+        const { clientWidth, clientHeight } = heldElement;
+
+        let offset;
+        let referenceAngle;
+        if (heldItem.heldOffset) {
+          offset = heldItem.heldOffset;
+          referenceAngle = heldItem.heldAngle || 0;
+        } else {
+          offset = {
+            x: heldItem.x + clientWidth / 2 - holderCenter.x,
+            y: heldItem.y + clientHeight / 2 - holderCenter.y,
+          };
+          referenceAngle = holderPreviousRotation;
+        }
+
+        const rad = ((holderNewRotation - referenceAngle) * Math.PI) / 180;
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
+        const newCenter = {
+          x: holderCenter.x + offset.x * cos - offset.y * sin,
+          y: holderCenter.y + offset.x * sin + offset.y * cos,
+        };
+
+        // Round to avoid floating point noise (e.g. cos/sin of "exact"
+        // angles like 90/180 aren't exactly 0/-1/1 in IEEE-754) leaking
+        // into the stored position.
+        const newX = Math.round((newCenter.x - clientWidth / 2) * 100) / 100;
+        const newY = Math.round((newCenter.y - clientHeight / 2) * 100) / 100;
+        const newRotation = ((heldItem.rotation || 0) + angleDelta) % 360;
+
+        heldUpdates[heldId] = { x: newX, y: newY, rotation: newRotation };
+
+        if (
+          Array.isArray(heldItem.linkedItems) &&
+          heldItem.linkedItems.length > 0
+        ) {
+          const childHolderCenter = {
+            x: newX + clientWidth / 2,
+            y: newY + clientHeight / 2,
+          };
+          heldItem.linkedItems.forEach((childId) => {
+            queue.push({
+              heldId: childId,
+              holderCenter: childHolderCenter,
+              holderPreviousRotation: heldItem.rotation || 0,
+              holderNewRotation: newRotation,
+              angleDelta,
+            });
+          });
+        }
+      }
+
+      return heldUpdates;
+    },
+    [getItems]
+  );
+
   // Stack selection to Center
   const stackToCenter = React.useCallback(
     async (
@@ -406,20 +539,31 @@ export const useGameItemActions = () => {
   const randomlyRotateSelectedItems = React.useCallback(
     async (itemIds, { angle, maxRotateCount = 0 }) => {
       const [ids] = await getItemListOrSelected(itemIds);
+      const rootItems = getItems(ids);
 
       const maxRotate = maxRotateCount || Math.round(360 / angle);
+      const rootAngles = Object.fromEntries(
+        rootItems.map((item) => [item.id, angle * randInt(0, maxRotate)])
+      );
+
+      const heldUpdates = computeHeldRotationUpdates(rootAngles);
+      const heldIds = Object.keys(heldUpdates);
 
       batchUpdateItems(
-        ids,
-        (item) => {
-          const rotation =
-            ((item.rotation || 0) + angle * randInt(0, maxRotate)) % 360;
-          return { rotation };
-        },
+        [...ids, ...heldIds],
+        (item) =>
+          heldUpdates[item.id] || {
+            rotation: ((item.rotation || 0) + (rootAngles[item.id] || 0)) % 360,
+          },
         true
       );
     },
-    [getItemListOrSelected, batchUpdateItems]
+    [
+      getItemListOrSelected,
+      getItems,
+      computeHeldRotationUpdates,
+      batchUpdateItems,
+    ]
   );
 
   // Tap/Untap elements
@@ -436,16 +580,23 @@ export const useGameItemActions = () => {
         tap = false;
       }
 
+      const angleDelta = tap ? 90 : -90;
+      const heldUpdates = computeHeldRotationUpdates(
+        Object.fromEntries(ids.map((id) => [id, angleDelta]))
+      );
+      const heldIds = Object.keys(heldUpdates);
+
       batchUpdateItems(
-        ids,
-        (item) => ({
-          tapped: tap,
-          rotation: tap ? (item.rotation || 0) + 90 : (item.rotation || 0) - 90,
-        }),
+        [...ids, ...heldIds],
+        (item) =>
+          heldUpdates[item.id] || {
+            tapped: tap,
+            rotation: ((item.rotation || 0) + angleDelta) % 360,
+          },
         true
       );
     },
-    [getItemListOrSelected, batchUpdateItems]
+    [getItemListOrSelected, computeHeldRotationUpdates, batchUpdateItems]
   );
 
   // Lock / unlock elements
@@ -529,20 +680,27 @@ export const useGameItemActions = () => {
     [getItemListOrSelected, setFlip]
   );
 
-  // Rotate element
+  // Rotate element, along with any items held on top of it, keeping their
+  // relative position by rotating them around the holder's center.
   const rotate = React.useCallback(
     async (itemIds, { angle }) => {
       const [ids] = await getItemListOrSelected(itemIds);
 
+      const heldUpdates = computeHeldRotationUpdates(
+        Object.fromEntries(ids.map((id) => [id, angle]))
+      );
+      const heldIds = Object.keys(heldUpdates);
+
       batchUpdateItems(
-        ids,
-        (item) => ({
-          rotation: (item.rotation || 0) + angle,
-        }),
+        [...ids, ...heldIds],
+        (item) =>
+          heldUpdates[item.id] || {
+            rotation: ((item.rotation || 0) + angle) % 360,
+          },
         true
       );
     },
-    [getItemListOrSelected, batchUpdateItems]
+    [getItemListOrSelected, computeHeldRotationUpdates, batchUpdateItems]
   );
 
   // Reveal for player only
@@ -981,6 +1139,7 @@ export const useGameItemActions = () => {
     roll,
     changeValue,
     rotate,
+    computeHeldRotationUpdates,
     stack: stackToTopLeft,
     setFlip,
     setFlipSelf,
