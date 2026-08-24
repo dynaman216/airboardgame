@@ -6,6 +6,7 @@ import styled from "styled-components";
 import Modal from "../ui/Modal";
 
 import UserCircle from "./UserCircle";
+import useHiddenItemOpacity from "../hooks/useHiddenItemOpacity";
 
 const StyledInputName = styled.input`
   &:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="color"]):not([type="button"]):not([type="reset"]) {
@@ -30,6 +31,8 @@ const UserConfig = ({
   existingNames = emptyNames,
 }) => {
   const { t } = useTranslation();
+
+  const [hiddenItemOpacity, setHiddenItemOpacity] = useHiddenItemOpacity();
 
   const [name, setName] = React.useState(user.name);
   const [color, setColor] = React.useState(user.color);
@@ -150,6 +153,23 @@ const UserConfig = ({
           styles={emptyStyle}
           width={160}
         />
+
+        {editable && (
+          <>
+            <label>
+              {t("Hidden item opacity")} ({Math.round(hiddenItemOpacity * 100)}
+              %)
+            </label>
+            <input
+              type="range"
+              min="0.1"
+              max="0.9"
+              step="0.05"
+              value={hiddenItemOpacity}
+              onChange={(e) => setHiddenItemOpacity(parseFloat(e.target.value))}
+            />
+          </>
+        )}
       </Modal>
     </>
   );

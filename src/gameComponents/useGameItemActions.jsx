@@ -39,6 +39,7 @@ import {
   FiMinusCircle,
   FiCopy,
   FiEye,
+  FiEyeOff,
   FiRotateCw,
   FiTrash2,
 } from "react-icons/fi";
@@ -48,6 +49,7 @@ import rollAudio from "../media/audio/roll.ogg?url";
 import shuffleAudio from "../media/audio/shuffle.ogg?url";
 
 import useLocalStorage from "../hooks/useLocalStorage";
+import { useCurrentUserGroupId } from "../hooks/useGroups";
 
 export const useGameItemActions = () => {
   const {
@@ -65,6 +67,7 @@ export const useGameItemActions = () => {
   const [isFirstLock, setIsFirstLock] = useLocalStorage("isFirstLock", true);
 
   const { currentUser } = useUsers();
+  const currentUserGroupId = useCurrentUserGroupId();
 
   const getSelectedItems = useGetSelectedItems();
 
@@ -624,6 +627,78 @@ export const useGameItemActions = () => {
     [getItemListOrSelected, batchUpdateItems, isFirstLock, t, setIsFirstLock]
   );
 
+  // Recursively collect every item held (directly or transitively) on top of
+  // rootId via the "hold" mechanism's linkedItems, so hiding a holder also
+  // hides its whole stack -- mirroring how rotation propagates through the
+  // same chain (see computeHeldRotationUpdates above).
+  const getHeldDescendantIds = React.useCallback(
+    (rootId) => {
+      const result = [];
+      const seen = new Set([rootId]);
+      const queue = [rootId];
+      while (queue.length > 0) {
+        const [item] = getItems([queue.shift()]);
+        if (!item || !Array.isArray(item.linkedItems)) continue;
+        item.linkedItems.forEach((childId) => {
+          if (seen.has(childId)) return;
+          seen.add(childId);
+          result.push(childId);
+          queue.push(childId);
+        });
+      }
+      return result;
+    },
+    [getItems]
+  );
+
+  // Hide / show items for everyone outside the hider's group. hiddenByGroup
+  // is only (re)stamped when hiding, so an already-hidden item keeps
+  // belonging to whichever group hid it first even if a groupmate re-toggles
+  // it, and toggling back to visible doesn't need to touch it at all.
+  // Whatever is stacked on a toggled item (held via linkedItems) inherits
+  // its new state too, so hiding a card also hides the tokens sitting on it.
+  const toggleGroupHide = React.useCallback(
+    async (itemIds) => {
+      const [ids] = await getItemListOrSelected(itemIds);
+      const items = await getItems(ids);
+
+      const updates = {};
+      const processed = new Set();
+
+      items.forEach((item) => {
+        if (!item || processed.has(item.id)) return;
+        processed.add(item.id);
+
+        const newHidden = !item.hidden;
+        const newHiddenByGroup = newHidden
+          ? currentUserGroupId
+          : item.hiddenByGroup;
+        updates[item.id] = {
+          hidden: newHidden,
+          hiddenByGroup: newHiddenByGroup,
+        };
+
+        getHeldDescendantIds(item.id).forEach((heldId) => {
+          if (processed.has(heldId)) return;
+          processed.add(heldId);
+          updates[heldId] = {
+            hidden: newHidden,
+            hiddenByGroup: newHiddenByGroup,
+          };
+        });
+      });
+
+      batchUpdateItems(Object.keys(updates), (item) => updates[item.id], true);
+    },
+    [
+      getItemListOrSelected,
+      getItems,
+      getHeldDescendantIds,
+      batchUpdateItems,
+      currentUserGroupId,
+    ]
+  );
+
   // Flip or reveal items
   const setFlip = React.useCallback(
     async (itemIds, { flip = true, reverseOrder = true } = {}) => {
@@ -1093,6 +1168,13 @@ export const useGameItemActions = () => {
         edit: true,
         icon: FiLock,
       },
+      groupHide: {
+        action: () => toggleGroupHide,
+        label: t("Show to everyone") + "/" + t("Hide from group"),
+        shortcut: "h",
+        disableDblclick: true,
+        icon: FiEyeOff,
+      },
       remove: {
         action: () => remove,
         label: t("Remove all"),
@@ -1129,6 +1211,7 @@ export const useGameItemActions = () => {
     t,
     toggleFlip,
     toggleFlipSelf,
+    toggleGroupHide,
     toggleLock,
     toggleTap,
   ]);

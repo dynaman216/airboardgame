@@ -7,7 +7,7 @@ npm run dev:all
     --default group of umpire for first player
     --default group of player for others
     --umpire (only) can create and assign people to other groups
-hiding counters by groups
-    opacity option for those that can see them
-    umpire can see everything
+--hiding counters by groups
+    --opacity option for those that can see them
+    --umpire can see everything
 Right Click menu

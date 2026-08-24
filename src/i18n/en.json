@@ -369,5 +369,8 @@
   "Add group": "Add group",
   "Group name": "Group name",
   "Remove group": "Remove group",
-  "Players": "Players"
+  "Players": "Players",
+  "Show to everyone": "Show to everyone",
+  "Hide from group": "Hide from group",
+  "Hidden item opacity": "Hidden item opacity"
 }

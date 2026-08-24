@@ -369,5 +369,8 @@
   "Add group": "Ajouter un groupe",
   "Group name": "Nom du groupe",
   "Remove group": "Supprimer le groupe",
-  "Players": "Joueurs"
+  "Players": "Joueurs",
+  "Show to everyone": "Montrer à tout le monde",
+  "Hide from group": "Cacher hors du groupe",
+  "Hidden item opacity": "Opacité des éléments cachés"
 }
