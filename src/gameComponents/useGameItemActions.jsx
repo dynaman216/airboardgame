@@ -867,9 +867,18 @@ export const useGameItemActions = () => {
         const newItem = JSON.parse(JSON.stringify(itemToClone));
         newItem.id = uid();
         delete newItem.move;
+        // A generator owns its generated item. Cloning the owner must create
+        // a new generated item instead of making both generators share the
+        // same child and react to each other's placement events.
+        if (newItem.type === "generator") {
+          delete newItem.currentItemId;
+          delete newItem.linkedItems;
+        }
         return newItem;
       });
-      pushItems(newItems, null);
+      if (newItems.length) {
+        pushItems(newItems, null);
+      }
     },
     [getItemListOrSelected, pushItems]
   );
@@ -995,40 +1004,50 @@ export const useGameItemActions = () => {
         icon: GiRollingDices,
       },
       rollLayer: {
-        action: ({ layer = 0 } = {}) => (itemIds) =>
-          roll(itemIds, { layer: layer }),
+        action:
+          ({ layer = 0 } = {}) =>
+          (itemIds) =>
+            roll(itemIds, { layer: layer }),
         label: t("Roll"),
         shortcut: "r",
         icon: GiRollingDices,
         form: ActionRollLayerForm,
       },
       nextImage: {
-        action: ({ step = 1 } = {}) => (itemIds) =>
-          changeValue(itemIds, { step }),
+        action:
+          ({ step = 1 } = {}) =>
+          (itemIds) =>
+            changeValue(itemIds, { step }),
         label: t("Next"),
         shortcut: "n",
         icon: FiPlusCircle,
         form: ActionChangeImageForm,
       },
       prevImage: {
-        action: ({ step = 1 } = {}) => (itemIds) =>
-          changeValue(itemIds, { step: -step }),
+        action:
+          ({ step = 1 } = {}) =>
+          (itemIds) =>
+            changeValue(itemIds, { step: -step }),
         label: t("Previous"),
         shortcut: "p",
         icon: FiMinusCircle,
         form: ActionChangeImageForm,
       },
       nextImageForLayer: {
-        action: ({ step = 1, layer = 0 } = {}) => (itemIds) =>
-          changeValue(itemIds, { step, layer }),
+        action:
+          ({ step = 1, layer = 0 } = {}) =>
+          (itemIds) =>
+            changeValue(itemIds, { step, layer }),
         label: t("Next"),
         shortcut: "n",
         icon: FiPlusCircle,
         form: ActionChangeImageLayerForm,
       },
       prevImageForLayer: {
-        action: ({ step = -1, layer = 0 } = {}) => (itemIds) =>
-          changeValue(itemIds, { step, layer }),
+        action:
+          ({ step = -1, layer = 0 } = {}) =>
+          (itemIds) =>
+            changeValue(itemIds, { step, layer }),
         label: t("Previous"),
         shortcut: "p",
         icon: FiMinusCircle,
@@ -1048,11 +1067,13 @@ export const useGameItemActions = () => {
         ),
       },
       randomlyRotate: {
-        action: ({ angle = 25, maxRotateCount = 0 } = {}) => (itemIds) =>
-          randomlyRotateSelectedItems(itemIds, {
-            angle,
-            maxRotateCount,
-          }),
+        action:
+          ({ angle = 25, maxRotateCount = 0 } = {}) =>
+          (itemIds) =>
+            randomlyRotateSelectedItems(itemIds, {
+              angle,
+              maxRotateCount,
+            }),
         label: ({ angle = 25 } = {}) =>
           t("Rotate randomly {{angle}}°", { angle }),
         genericLabel: t("Rotate randomly"),
@@ -1115,8 +1136,10 @@ export const useGameItemActions = () => {
         icon: FiRotateCw,
       },
       rotate: {
-        action: ({ angle = 25 } = {}) => (itemIds) =>
-          rotate(itemIds, { angle }),
+        action:
+          ({ angle = 25 } = {}) =>
+          (itemIds) =>
+            rotate(itemIds, { angle }),
         label: ({ angle = 25 } = {}) => t("Rotate {{angle}}°", { angle }),
         genericLabel: t("Rotate"),
         shortcut: "r",

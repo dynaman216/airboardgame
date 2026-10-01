@@ -9,7 +9,9 @@ import UserCircle from "./UserCircle";
 import useHiddenItemOpacity from "../hooks/useHiddenItemOpacity";
 
 const StyledInputName = styled.input`
-  &:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="color"]):not([type="button"]):not([type="reset"]) {
+  &:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not(
+      [type="color"]
+    ):not([type="button"]):not([type="reset"]) {
     width: 12em;
   }
 `;

@@ -20,6 +20,7 @@ import rollAudio from "../../media/audio/roll.ogg?url";
 import shuffleAudio from "../../media/audio/shuffle.ogg?url";
 import { preloadAudio } from "../../utils";
 import UserBar from "./UserBar";
+import BoardGridOverlay from "../../gameComponents/GridOverlay";
 
 const StyledBoard = styled.div`
   & .item.locked::after {
@@ -38,6 +39,8 @@ const StyledBoard = styled.div`
     opacity: 0.3;
   }
 `;
+
+const preventNativeDrag = (event) => event.preventDefault();
 
 export const BoardView = ({
   mediaLibraries,
@@ -68,14 +71,15 @@ export const BoardView = ({
   return (
     <MediaLibraryProvider libraries={mediaLibraries}>
       <ImageDropNPaste>
-        <StyledBoard>
+        <StyledBoard onDragStart={preventNativeDrag}>
           <Board
             moveFirst={moveFirst}
             style={style}
             itemTemplates={itemTemplates}
             showResizeHandle={editItem}
-            limitPan={!!boardConfig.limitPan}
-          />
+          >
+            <BoardGridOverlay />
+          </Board>
         </StyledBoard>
         <NavBar
           editMode={editMode}

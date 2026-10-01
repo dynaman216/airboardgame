@@ -119,7 +119,7 @@ const demoGame = {
     bgType: "default",
     playerCount: [],
     duration: [],
-    gridSize: 1,
+    grid: { type: null, size: 1 },
     defaultLanguage: "en",
     materialLanguage: "Multi-lang",
     defaultBaseline: "Learn how to play with Airboardgame",
@@ -376,10 +376,13 @@ export const updateRoom = async (id, data) => {
 };
 
 export const sendAuthToken = async (email) => {
+  const browserLanguages = globalThis.navigator?.languages?.join(",");
   const result = await fetch(`${authURI}/`, {
     method: "POST",
     headers: {
       Accept: "application/json",
+      "Accept-Language":
+        browserLanguages || globalThis.navigator?.language || "en",
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ userEmail: email }),
