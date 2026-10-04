@@ -11,3 +11,6 @@ npm run dev:all
     --opacity option for those that can see them
     --umpire can see everything
 Right Click menu
+Rulers
+    Measured moves
+    Units to inches or cm
