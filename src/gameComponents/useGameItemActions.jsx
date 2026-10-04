@@ -102,6 +102,33 @@ export const useGameItemActions = () => {
       const processedHeld = new Set(Object.keys(rootAngles));
       const queue = [];
 
+      // An item sitting on a nested holder (token on a card on a board) is
+      // inside every holder's bounds, so it appears in each one's
+      // linkedItems. Only its nearest holder must position it: drop the ids
+      // that are also reachable through another of the same holder's items.
+      const getDirectlyHeldIds = (linkedItems) => {
+        const nested = new Set();
+        const stack = [...linkedItems];
+        const visited = new Set();
+        while (stack.length > 0) {
+          const id = stack.pop();
+          if (visited.has(id)) {
+            continue;
+          }
+          visited.add(id);
+          const [item] = getItems([id]);
+          if (Array.isArray(item?.linkedItems)) {
+            item.linkedItems.forEach((childId) => {
+              if (childId !== id) {
+                nested.add(childId);
+                stack.push(childId);
+              }
+            });
+          }
+        }
+        return linkedItems.filter((id) => !nested.has(id));
+      };
+
       Object.entries(rootAngles).forEach(([rootId, angleDelta]) => {
         if (!angleDelta) {
           return;
@@ -126,9 +153,10 @@ export const useGameItemActions = () => {
         const holderPreviousRotation = rootItem.rotation || 0;
         const holderNewRotation = holderPreviousRotation + angleDelta;
 
-        rootItem.linkedItems.forEach((heldId) => {
+        getDirectlyHeldIds(rootItem.linkedItems).forEach((heldId) => {
           queue.push({
             heldId,
+            holderId: rootId,
             holderCenter,
             holderPreviousRotation,
             holderNewRotation,
@@ -140,6 +168,7 @@ export const useGameItemActions = () => {
       while (queue.length > 0) {
         const {
           heldId,
+          holderId,
           holderCenter,
           holderPreviousRotation,
           holderNewRotation,
@@ -163,7 +192,12 @@ export const useGameItemActions = () => {
 
         let offset;
         let referenceAngle;
-        if (heldItem.heldOffset) {
+        // Items captured before heldBy existed have no owner recorded; trust
+        // their reference as before.
+        if (
+          heldItem.heldOffset &&
+          (heldItem.heldBy === undefined || heldItem.heldBy === holderId)
+        ) {
           offset = heldItem.heldOffset;
           referenceAngle = heldItem.heldAngle || 0;
         } else {
@@ -199,9 +233,10 @@ export const useGameItemActions = () => {
             x: newX + clientWidth / 2,
             y: newY + clientHeight / 2,
           };
-          heldItem.linkedItems.forEach((childId) => {
+          getDirectlyHeldIds(heldItem.linkedItems).forEach((childId) => {
             queue.push({
               heldId: childId,
+              holderId: heldId,
               holderCenter: childHolderCenter,
               holderPreviousRotation: heldItem.rotation || 0,
               holderNewRotation: newRotation,

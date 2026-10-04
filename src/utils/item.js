@@ -200,6 +200,9 @@ export const captureHeldReferences = ({ holderId, heldIds, itemList }) => {
         y: heldItemData.y + heldElement.clientHeight / 2 - holderCenter.y,
       },
       heldAngle: holderAngle,
+      // An item inside nested holders is linked by each of them; record which
+      // holder this offset is relative to.
+      heldBy: holderId,
     };
   });
 
