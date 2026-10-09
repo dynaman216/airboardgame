@@ -41,9 +41,7 @@ git show <commit>
 9. **i18n text tweaks** — "Invite more player" -> "Invite more players"
    (`UserBar.jsx`, `WelcomeModal.jsx`, `InviteModal.jsx`, `RoomNavBar.jsx`) and
    new strings in `en.json`/`fr.json` for the features above.
-10. **Dev tooling** — `react-sync-board: file:../reactsyncboard` in
-    `package.json`, `dev:all`/`predev:all` scripts, `concurrently` dev dep,
-    `ensureLocalDeps.mjs`.
+10. ~~**Dev tooling**~~ — restored 2026-10-09 (`npm run dev:all`).
 11. **Asset edits** — `public/game_assets/dice/three.svg`,
     `src/media/images/cursor.svg`, `cursor2.svg`.
 12. **Misc** — `docs/TaskList.txt`, `backend/package-lock.json` changes.
